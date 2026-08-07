@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACA Sandboxes — Research Agent Swarm</title>
+<style>
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #1c2333;
+    --border: #30363d;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-yellow: #d29922;
+    --accent-red: #f85149;
+    --accent-purple: #bc8cff;
+    --accent-cyan: #39d353;
+    --card-hover: #1f2937;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  .header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header .badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  .main { display: flex; height: calc(100vh - 56px); }
+
+  .content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+  .sidebar {
+    width: 340px;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* ── Sandbox management panel ─────────────────────── */
+  .sandbox-mgmt {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1rem 1rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+  }
+  .sandbox-mgmt .mgmt-header {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.72rem;
+  }
+  .sandbox-mgmt .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.72rem;
+  }
+  .sandbox-mgmt .stat-row .k { color: var(--text-muted); }
+  .sandbox-mgmt .stat-row .v {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+  .sandbox-mgmt .v.ok { color: var(--accent-green); }
+  .sandbox-mgmt .v.dim { color: var(--text-muted); }
+  .sandbox-mgmt .btn-row {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+  }
+  .btn-mgmt {
+    flex: 1;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-mgmt:hover:not(:disabled) {
+    background: var(--card-hover);
+    color: var(--text-primary);
+  }
+  .btn-mgmt:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Input bar ──────────────────────────────────────────── */
+  .input-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    align-items: stretch;
+  }
+
+  .input-bar input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-bar input:focus { border-color: var(--accent); }
+  .input-bar input::placeholder { color: var(--text-muted); }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-purple));
+    color: #fff;
+  }
+
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .hint-banner {
+    display: none;
+    margin: 0 0 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(210, 153, 34, 0.45);
+    background: rgba(210, 153, 34, 0.12);
+    color: #f9d88a;
+  }
+  .hint-banner.visible { display: block; }
+  .hint-banner strong { color: #ffe59a; }
+  .hint-banner .hint-meta {
+    margin-top: 0.4rem;
+    color: var(--text-secondary);
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    white-space: pre-wrap;
+  }
+
+  /* ── Agent grid ─────────────────────────────────────────── */
+  .section-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+  }
+
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .agent-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .agent-card:hover { background: var(--card-hover); }
+
+  .agent-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .agent-card-header .label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .status-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .status-provisioning { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+  .status-researching  { background: rgba(88, 166, 255, 0.15); color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.3); }
+  .status-done         { background: rgba(63, 185, 80, 0.15);  color: var(--accent-green); border: 1px solid rgba(63, 185, 80, 0.3); }
+  .status-error        { background: rgba(248, 81, 73, 0.15);  color: var(--accent-red); border: 1px solid rgba(248, 81, 73, 0.3); }
+
+  .agent-question {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    font-style: italic;
+  }
+
+  .agent-answer {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    flex: 1;
+    min-height: 0;
+  }
+
+  .agent-answer.visible { display: flex; flex-direction: column; }
+
+  /* Collapsed: clamp answer body to 3 lines, keep cards equal height */
+  .answer-body {
+    overflow: hidden;
+    color: var(--text-primary);
+  }
+  .agent-answer.collapsed .answer-body {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Strip block spacing so 3 lines really means 3 lines */
+  }
+  .agent-answer.collapsed .answer-body * {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+    font-weight: inherit;
+    background: none;
+    border: none;
+  }
+  .agent-answer.collapsed .answer-body br { display: none; }
+  .agent-answer.collapsed .agent-sources { display: none; }
+
+  .answer-toggle {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+  }
+  .answer-toggle:hover { text-decoration: underline; }
+
+  .agent-sources {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .source-tag {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--accent-cyan);
+  }
+
+  /* ── Report ─────────────────────────────────────────────── */
+  .report-section {
+    display: none;
+    margin-top: 1rem;
+  }
+
+  .report-section.visible { display: block; }
+
+  .report-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    line-height: 1.7;
+    font-size: 0.9rem;
+  }
+
+  .report-box h1, .report-box h2, .report-box h3 {
+    color: var(--accent);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .report-box h1 { font-size: 1.3rem; }
+  .report-box h2 { font-size: 1.1rem; color: var(--accent-purple); }
+  .report-box h3 { font-size: 0.95rem; color: var(--accent-cyan); }
+
+  .report-box ul, .report-box ol { margin-left: 1.5rem; margin-bottom: 0.5rem; }
+  .report-box li { margin-bottom: 0.25rem; }
+  .report-box p { margin-bottom: 0.5rem; }
+  .report-box strong { color: var(--accent-green); }
+  .report-box em { color: var(--text-secondary); }
+  .report-box code { background: var(--bg-tertiary); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.85em; }
+  .report-box blockquote { border-left: 3px solid var(--accent-purple); padding-left: 1rem; color: var(--text-secondary); margin: 0.5rem 0; }
+  .report-box hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  /* ── Event log ──────────────────────────────────────────── */
+  .log-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .log-entries {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.75rem;
+  }
+
+  .log-entry {
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .log-entry .time { color: var(--text-muted); white-space: nowrap; }
+  .log-entry.info    .msg { color: var(--text-secondary); }
+  .log-entry.success .msg { color: var(--accent-green); }
+  .log-entry.warn    .msg { color: var(--accent-yellow); }
+  .log-entry.error   .msg { color: var(--accent-red); }
+
+  /* ── Empty state ────────────────────────────────────────── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 50vh;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+  .empty-state p { font-size: 0.9rem; max-width: 400px; }
+
+  /* ── Spinner ────────────────────────────────────────────── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.3rem;
+  }
+
+  /* ── Pulse dot for researching ──────────────────────────── */
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+    margin-right: 0.3rem;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔬 ACA Sandboxes — Research Agent Swarm</h1>
+    <span class="badge">v0.6.14</span>
+    <span class="badge" id="ws-status">● Disconnected</span>
+  </div>
+
+  <div class="main">
+    <div class="content">
+      <div class="input-bar">
+        <input type="text" id="topic-input" placeholder="Enter a research topic, e.g. 'Quantum computing advances in 2024'" />
+        <button class="btn btn-primary" id="research-btn" onclick="startResearch()">🔍 Research</button>
+      </div>
+
+      <div id="hint-banner" class="hint-banner"></div>
+
+      <div id="empty-state" class="empty-state">
+        <div class="icon">🧠</div>
+        <p>Enter a research topic above. The orchestrator will decompose it into sub-questions, spawn a sandbox per question, and synthesize a final report.</p>
+      </div>
+
+      <div id="agents-section" style="display:none;">
+        <div class="section-title">Research Agents</div>
+        <div class="agent-grid" id="agent-grid"></div>
+      </div>
+
+      <div class="report-section" id="report-section">
+        <div class="section-title">📄 Synthesized Report</div>
+        <div class="report-box" id="report-content"></div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="log-header">📋 Event Log</div>
+      <div class="log-entries" id="log-entries"></div>
+      <div class="sandbox-mgmt">
+        <div class="mgmt-header">📦 Sandbox Management</div>
+        <div class="stat-row"><span class="k">Image ref</span><span class="v dim" id="mgmt-image-ref" title="—">—</span></div>
+        <div class="stat-row"><span class="k">Disk image</span><span class="v dim" id="mgmt-disk-id" title="—">—</span></div>
+        <div class="stat-row"><span class="k">OCI digest</span><span class="v dim" id="mgmt-digest" title="—">—</span></div>
+        <div class="stat-row"><span class="k">Total runtime</span><span class="v" id="mgmt-runtime">0.0 s</span></div>
+        <div class="stat-row"><span class="k">Sandboxes run</span><span class="v" id="mgmt-runs">0</span></div>
+        <div class="stat-row"><span class="k">Live now</span><span class="v" id="mgmt-live">0</span></div>
+        <div class="btn-row">
+          <button class="btn-mgmt" id="btn-recreate" onclick="recreateDiskImage()">Re-create disk image</button>
+          <button class="btn-mgmt" id="btn-delete" onclick="deleteDiskImage()">Delete disk image</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let ws = null;
+const agents = {};
+const hintAgents = new Set();
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/agents`);
+
+  ws.onopen = () => {
+    document.getElementById('ws-status').textContent = '● Connected';
+    document.getElementById('ws-status').style.color = '#3fb950';
+  };
+
+  ws.onclose = () => {
+    document.getElementById('ws-status').textContent = '● Disconnected';
+    document.getElementById('ws-status').style.color = '#f85149';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleMessage(msg);
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'questions':
+      showQuestions(msg.questions);
+      break;
+    case 'agent':
+      updateAgent(msg);
+      break;
+    case 'result':
+      showResult(msg);
+      break;
+    case 'report':
+      showReport(msg.markdown);
+      break;
+    case 'log':
+      addLog(msg.message, msg.level);
+      break;
+    case 'hint':
+      showHint(msg);
+      break;
+    case 'sandbox_info_changed':
+      refreshSandboxInfo();
+      break;
+  }
+}
+
+function startResearch() {
+  const input = document.getElementById('topic-input');
+  const topic = input.value.trim();
+  if (!topic || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+  // Reset UI
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('agents-section').style.display = 'block';
+  document.getElementById('agent-grid').innerHTML = '';
+  document.getElementById('report-section').classList.remove('visible');
+  document.getElementById('report-content').innerHTML = '';
+  document.getElementById('research-btn').disabled = true;
+  hideHint();
+  hintAgents.clear();
+
+  ws.send(JSON.stringify({ type: 'research', topic }));
+  addLog(`Starting research: "${topic}"`, 'info');
+}
+
+function showQuestions(questions) {
+  const grid = document.getElementById('agent-grid');
+  grid.innerHTML = '';
+
+  questions.forEach((q, i) => {
+    agents[i] = { question: q, status: 'provisioning' };
+
+    const card = document.createElement('div');
+    card.className = 'agent-card';
+    card.id = `agent-card-${i}`;
+    card.innerHTML = `
+      <div class="agent-card-header">
+        <span class="label">🔍 Agent ${i + 1}</span>
+        <span class="status-badge status-provisioning" id="status-${i}">Provisioning</span>
+      </div>
+      <div class="agent-question">"${escapeHtml(q)}"</div>
+      <div class="agent-answer" id="answer-${i}"></div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function updateAgent(msg) {
+  const badge = document.getElementById(`status-${msg.index}`);
+  if (!badge) return;
+
+  badge.className = `status-badge status-${msg.status}`;
+
+  const labels = {
+    provisioning: '<span class="spinner"></span> Provisioning',
+    researching: '<span class="pulse-dot"></span> Researching',
+    done: '✓ Done',
+    error: '✗ Error'
+  };
+  badge.innerHTML = labels[msg.status] || msg.status;
+}
+
+function showResult(msg) {
+  const answerDiv = document.getElementById(`answer-${msg.index}`);
+  if (!answerDiv) return;
+
+  let html = `<div class="answer-body">${simpleMarkdown(msg.answer)}</div>`;
+  if (msg.sources && msg.sources.length > 0) {
+    html += '<div class="agent-sources">';
+    msg.sources.forEach((s, i) => {
+      html += `<span class="source-tag">[${i + 1}] ${escapeHtml(s)}</span>`;
+    });
+    html += '</div>';
+  }
+  html += `<button class="answer-toggle" onclick="toggleAnswer(${msg.index})">Show more ▾</button>`;
+
+  if (msg.simulated) {
+    html += `<div style="margin-top:0.5rem; color: var(--accent-yellow); font-size:0.75rem;">⚠ Simulated fallback used</div>`;
+  }
+
+  answerDiv.innerHTML = html;
+  answerDiv.classList.add('visible', 'collapsed');
+}
+
+function showHint(msg) {
+  if (hintAgents.has(msg.agentIndex)) return;
+  hintAgents.add(msg.agentIndex);
+
+  const el = document.getElementById('hint-banner');
+  const title = escapeHtml(msg.title || 'Sandbox warning');
+  const message = escapeHtml(msg.message || 'One or more agents returned fallback output.');
+  const diagnostics = (msg.diagnostics || '').trim();
+
+  el.innerHTML = `
+    <strong>${title}</strong><br>
+    ${message}
+    <div class="hint-meta">
+Likely checks:
+- Managed identity has Cognitive Services OpenAI User on the AOAI account
+- AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT match a real deployment
+- Sandbox egress can reach *.cognitiveservices.azure.com
+${diagnostics ? `\nDiagnostics:\n${escapeHtml(diagnostics.slice(0, 900))}` : ''}
+    </div>
+  `;
+  el.classList.add('visible');
+}
+
+function hideHint() {
+  const el = document.getElementById('hint-banner');
+  if (!el) return;
+  el.classList.remove('visible');
+  el.textContent = '';
+}
+
+function toggleAnswer(index) {
+  const answerDiv = document.getElementById(`answer-${index}`);
+  if (!answerDiv) return;
+  const btn = answerDiv.querySelector('.answer-toggle');
+  const collapsed = answerDiv.classList.toggle('collapsed');
+  if (btn) btn.textContent = collapsed ? 'Show more ▾' : 'Show less ▴';
+}
+
+function showReport(markdown) {
+  document.getElementById('report-content').innerHTML = simpleMarkdown(markdown);
+  document.getElementById('report-section').classList.add('visible');
+  document.getElementById('research-btn').disabled = false;
+}
+
+function addLog(message, level = 'info') {
+  const container = document.getElementById('log-entries');
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${level}`;
+  entry.innerHTML = `<span class="time">${now}</span><span class="msg">${escapeHtml(message)}</span>`;
+  container.prepend(entry);
+}
+
+// ── Simple markdown → HTML converter ──────────────────────
+function simpleMarkdown(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+
+  // Code blocks
+  html = html.replace(/```[\s\S]*?```/g, m =>
+    '<pre><code>' + m.slice(3, -3).replace(/^\w*\n/, '') + '</code></pre>');
+
+  // Headings
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold and italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Unordered lists
+  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+  // Ordered lists
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Horizontal rules
+  html = html.replace(/^---$/gm, '<hr>');
+
+  // Paragraphs (double newlines)
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+
+  // Clean up empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  html = html.replace(/<p>(<h[1-3]>)/g, '$1');
+  html = html.replace(/(<\/h[1-3]>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<ul>)/g, '$1');
+  html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<blockquote>)/g, '$1');
+  html = html.replace(/(<\/blockquote>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<pre>)/g, '$1');
+  html = html.replace(/(<\/pre>)<\/p>/g, '$1');
+
+  return html;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ── Sandbox management panel ─────────────────────────
+async function refreshSandboxInfo() {
+  try {
+    const r = await fetch('/api/sandbox/info');
+    if (!r.ok) return;
+    applySandboxInfo(await r.json());
+  } catch (_) { /* silent */ }
+}
+
+function applySandboxInfo(info) {
+  const di = info.disk_image || {};
+  const st = info.stats || {};
+  setStat('mgmt-image-ref', di.image_ref);
+  setStat('mgmt-disk-id',   shortId(di.disk_image_id));
+  setStat('mgmt-digest',    shortDigest(di.oci_digest), di.oci_digest);
+  document.getElementById('mgmt-runtime').textContent = `${(st.total_sandbox_seconds || 0).toFixed(1)} s`;
+  document.getElementById('mgmt-runs').textContent    = (st.total_sandbox_runs || 0);
+  document.getElementById('mgmt-live').textContent    = (st.live_sandboxes || 0);
+  // Buttons enable/disable based on whether a disk image is cached
+  document.getElementById('btn-delete').disabled = !di.disk_image_id;
+}
+
+function setStat(id, value, fullTitle) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (value) {
+    el.textContent = value;
+    el.classList.remove('dim');
+    el.title = fullTitle || value;
+  } else {
+    el.textContent = '—';
+    el.classList.add('dim');
+    el.title = '—';
+  }
+}
+
+function shortId(id)      { return id ? (id.length > 28 ? id.slice(0, 12) + '…' + id.slice(-8) : id) : null; }
+function shortDigest(d)   { return d ? d.slice(0, 19) + '…' : null; }
+
+async function callMgmt(method, path, btnId) {
+  const btnRecreate = document.getElementById('btn-recreate');
+  const btnDelete   = document.getElementById('btn-delete');
+  btnRecreate.disabled = true;
+  btnDelete.disabled = true;
+  try {
+    const r = await fetch(path, { method });
+    const data = await r.json();
+    (data.logs || []).forEach(l => addLog(l.message, l.level || 'info'));
+    if (data.error) addLog(data.error, 'error');
+    applySandboxInfo(data);
+  } catch (ex) {
+    addLog('Management request failed: ' + ex, 'error');
+  } finally {
+    refreshSandboxInfo();
+  }
+}
+
+function recreateDiskImage() {
+  if (!confirm('Re-create the sandbox disk image from the latest ACR image? This may take ~30 s.')) return;
+  callMgmt('POST', '/api/sandbox/disk-image/recreate');
+}
+
+function deleteDiskImage() {
+  if (!confirm('Delete the cached sandbox disk image? It will be re-created on the next research run.')) return;
+  callMgmt('DELETE', '/api/sandbox/disk-image');
+}
+
+// Refresh stats periodically while sandboxes may be running
+setInterval(refreshSandboxInfo, 4000);
+
+// ── Boot ───────────────────────────────────────────────
+document.getElementById('topic-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') startResearch();
+});
+
+connect();
+refreshSandboxInfo();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-dotenv==1.0.1
+httpx==0.28.1
+# Required transitively by agent-framework-core for some HTTP code paths
+aiohttp>=3.10
+
+# Azure
+azure-identity==1.19.0
+openai>=2.25.0,<3
+
+# Microsoft Agent Framework — drives the decomposer / researcher / synthesizer
+# agents and the fan-out/fan-in workflow.
+# NOTE: We pull the specific subpackages we use (core + openai) instead of the
+# `agent-framework` meta package, which depends on `agent-framework-core[all]`
+# and triggers pip's ResolutionTooDeep on the long list of optional beta-only
+# integration extras.
+agent-framework-core==1.13.0
+agent-framework-openai==1.12.0
+
+# ACA Sandboxes SDK (PyPI)
+azure-containerapps-sandbox
+
+# Observability — OpenTelemetry export to Application Insights. The Agent
+# Framework emits GenAI spans for agent runs and tool calls; azure-monitor
+# ships them to App Insights, and the FastAPI instrumentor adds request spans.
+azure-monitor-opentelemetry==1.8.9
+opentelemetry-instrumentation-fastapi>=0.64b0,<0.65.0

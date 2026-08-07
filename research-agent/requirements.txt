@@ -1,0 +1,14 @@
+flask==3.1.1
+gunicorn==23.0.0
+agent-framework-core==1.13.0
+agent-framework-openai==1.12.0
+agent-framework-foundry==1.10.4
+azure-ai-projects>=2.2.0,<2.4.0
+requests
+openai>=2.25.0,<3
+httpx
+urllib3
+aiohttp
+# Observability — export in-sandbox OpenTelemetry spans (agent run + tool calls)
+# to Application Insights, joining the orchestrator's end-to-end trace.
+azure-monitor-opentelemetry
