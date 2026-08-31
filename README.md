@@ -18,23 +18,23 @@ The application accepts a research topic, asks a decomposer to produce sub-quest
 
 ![Research agent swarm architecture](images/architecture.png)
 
-The shape is simple:
+The flow of information is simple:
 
 ```text
-topic
+You provide a topic
   |
   v
-decomposer
+Decomposer decomposes it to multiple sub-topics.
   |
   +--> researcher 1 --> ACA Sandbox 1 --+
   +--> researcher 2 --> ACA Sandbox 2 --+
-  +--> researcher 3 --> ACA Sandbox 3 --+--> synthesizer --> report
+  +--> researcher 3 --> ACA Sandbox 3 --+  --> Synthesizer compiles the report based on information from all researches --> Final report
   +--> researcher 4 --> ACA Sandbox 4 --+
   +--> researcher 5 --> ACA Sandbox 5 --+
   +--> researcher 6 --> ACA Sandbox 6 --+
 ```
 
-The details behind those arrows are where the architecture earns its keep.
+The diagram is simple. Making each branch truly concurrent, isolated, and observable takes a few deliberate design choices.
 
 ## 1. Real concurrency needs separate workflow edges
 
@@ -188,6 +188,6 @@ Build those pieces together and the concurrency becomes the easy part.
 
 ## Next Steps
 
-1. **Try it:** Deploy the sample with `azd up` when the repository is published at [TODO: public GitHub URL for this sample].
+1. **Try it:** Deploy the sample with `azd up`.
 2. **Learn more:** Review the [Azure Container Apps Sandboxes documentation](https://sandboxes.azure.com) and map the egress policy to your own agent dependencies.
 3. **Go deeper:** Explore the [Microsoft Agent Framework repository](https://github.com/microsoft/agent-framework) and compare its workflow graph to the individual-edge fan-out used here.
